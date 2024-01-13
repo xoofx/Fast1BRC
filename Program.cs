@@ -180,7 +180,7 @@ internal static unsafe class Program
             // We vectorize the calculation of the hash up to 16 bytes
             if (Vector128.IsHardwareAccelerated)
             {
-                if (index + Vector128<byte>.Count < bufferLength)
+                while (index + Vector128<byte>.Count < bufferLength)
                 {
                     var mask = Vector128.Create((byte)';');
                     var v = Vector128.LoadUnsafe(ref Unsafe.Add(ref pBuffer, index));
@@ -248,7 +248,7 @@ internal static unsafe class Program
             while (index < bufferLength)
             {
                 var c = Unsafe.Add(ref pBuffer, index++);
-                if (c == (byte) '-')
+                if (c == (byte)'-')
                 {
                     sign = -1;
                 }
