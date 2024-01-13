@@ -2,8 +2,10 @@
 // Licensed under the BSD-Clause 2 license.
 // See license.txt file in the project root for full license information.
 using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using System.Text;
 
 namespace Fast1BRC;
@@ -173,20 +175,62 @@ internal static unsafe class Program
             // --------------------------------------------------------------------
             nint commaIndex;
             ulong hash = 0xcbf29ce484222325;
-            while(index < bufferLength)
+            if (Vector128.IsHardwareAccelerated)
+            {
+                if (index + Vector128<byte>.Count < bufferLength)
+                {
+                    var mask = Vector128.Create((byte)';');
+                    var v = Vector128.LoadUnsafe(ref Unsafe.Add(ref pBuffer, index));
+                    var eq = Vector128.Equals(v, mask);
+                    if (eq == Vector128<byte>.Zero)
+                    {
+                        hash = (hash ^ v.AsUInt64().GetElement(0)) * 0x100000001b3;
+                        hash = (hash ^ v.AsUInt64().GetElement(1)) * 0x100000001b3;
+                        index += Vector128<byte>.Count;
+                    }
+                    else
+                    {
+                        var offset = BitOperations.TrailingZeroCount(eq.ExtractMostSignificantBits());
+                        var val = Vector128.Create((byte)offset);
+                        var indices = Vector128.Create((byte)0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+                        v = (Vector128.GreaterThan(val, indices) & v);
+                        hash = (hash ^ v.AsUInt64().GetElement(0)) * 0x100000001b3;
+                        hash = (hash ^ v.AsUInt64().GetElement(1)) * 0x100000001b3;
+                        index += offset;
+                        goto readTemp;
+                    }
+                }
+            }
+
+            ulong acc = 0;
+            int accCount = 0;
+            while (index < bufferLength)
             {
                 var c = Unsafe.Add(ref pBuffer, index);
                 if (c == (byte)';')
                 {
-                    commaIndex = index++;
+                    if (accCount > 0)
+                    {
+                        acc <<= (8 - accCount);
+                        hash = (hash ^ acc) * 0x100000001b3;
+                    }
                     goto readTemp;
                 }
-                hash = (hash ^ c) * 0x100000001b3;
+                acc = (acc << 8) | c;
+                accCount++;
+                if (accCount == 8)
+                {
+                    hash = (hash ^ acc) * 0x100000001b3;
+                    acc = 0;
+                    accCount = 0;
+                }
                 index++;
             }
+
             return startLineIndex;
 
-            readTemp:
+        readTemp:
+            commaIndex = index++;
 
             // --------------------------------------------------------------------
             // Process the temperature
