@@ -5,6 +5,17 @@
 
 Aggregated results for C#/F# at https://github.com/praeclarum/1brc
 
+**Fast1BRC** might be one of the fastest (if not the fastest! 😅) implementation in the wild west. 🚀
+
+## Techniques used
+
+- Multiple threads
+- No memory mapped file but RandomAccess reopening the same handle per thread
+  - As I discovered that it is lowering OS contention
+- FNV-1A 64 bit hashing of the city names aligned on 8 bytes boundary, seems that it is not authorized from official rules, but I found it quite solid
+  - It is using a vectorized version with `Vector128` which is able to hash a name in just a few SIMD instructions 
+- No particular tricks for parsing the temperature, apart assuming that there is only 1 digit after the `.`
+
 ## Build
 
 You need to have [.NET 8 SDK installed](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
