@@ -175,6 +175,9 @@ internal static unsafe class Program
             // --------------------------------------------------------------------
             nint commaIndex;
             ulong hash = 0xcbf29ce484222325;
+            const ulong fnv1APrime = 0x100000001b3;
+
+            // We vectorize the calculation of the hash up to 16 bytes
             if (Vector128.IsHardwareAccelerated)
             {
                 if (index + Vector128<byte>.Count < bufferLength)
@@ -184,18 +187,23 @@ internal static unsafe class Program
                     var eq = Vector128.Equals(v, mask);
                     if (eq == Vector128<byte>.Zero)
                     {
-                        hash = (hash ^ v.AsUInt64().GetElement(0)) * 0x100000001b3;
-                        hash = (hash ^ v.AsUInt64().GetElement(1)) * 0x100000001b3;
+                        // If we don't have a match it means that the string is longer than 16 bytes
+                        // but we can hash the first 16 bytes
+                        hash = (hash ^ v.AsUInt64().GetElement(0)) * fnv1APrime;
+                        hash = (hash ^ v.AsUInt64().GetElement(1)) * fnv1APrime;
                         index += Vector128<byte>.Count;
                     }
                     else
                     {
+                        // The string is shorter than 16 bytes, we fetch the index of `;`
                         var offset = BitOperations.TrailingZeroCount(eq.ExtractMostSignificantBits());
+                        // We calculate the corresponding mask
                         var val = Vector128.Create((byte)offset);
                         var indices = Vector128.Create((byte)0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
                         v = (Vector128.GreaterThan(val, indices) & v);
-                        hash = (hash ^ v.AsUInt64().GetElement(0)) * 0x100000001b3;
-                        hash = (hash ^ v.AsUInt64().GetElement(1)) * 0x100000001b3;
+                        // We hash the value (as we would do in the following loop)
+                        hash = (hash ^ v.AsUInt64().GetElement(0)) * fnv1APrime;
+                        hash = (hash ^ v.AsUInt64().GetElement(1)) * fnv1APrime;
                         index += offset;
                         goto readTemp;
                     }
@@ -212,7 +220,7 @@ internal static unsafe class Program
                     if (accCount > 0)
                     {
                         acc <<= (8 - accCount);
-                        hash = (hash ^ acc) * 0x100000001b3;
+                        hash = (hash ^ acc) * fnv1APrime;
                     }
                     goto readTemp;
                 }
@@ -220,7 +228,7 @@ internal static unsafe class Program
                 accCount++;
                 if (accCount == 8)
                 {
-                    hash = (hash ^ acc) * 0x100000001b3;
+                    hash = (hash ^ acc) * fnv1APrime;
                     acc = 0;
                     accCount = 0;
                 }
