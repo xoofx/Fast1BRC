@@ -25,7 +25,7 @@ To fully test, you need to generate `measurements.txt`, easier on Ubuntu/MacOS:
 
 ## Results
 
-`1148.0469 ms` on my machine (AMD Ryzen 7950X at 60W)
+`952.78 ms` on my machine (AMD Ryzen 7950X at 60W)
 
 
 ## License
