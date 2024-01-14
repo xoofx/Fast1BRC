@@ -29,7 +29,7 @@ internal static unsafe class Program
         var noThreads = args.Contains("--nothreads");
 
         // Use RandomAccess on Windows and Linux, mmap on macOS
-        var mmap = !args.Contains("--nommap") && (args.Contains("--mmap") || (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux()));
+        var mmap = !args.Contains("--nommap") && (args.Contains("--mmap") || !OperatingSystem.IsWindows());
         for (int i = 0; i < count; i++)
         {
             var clock = Stopwatch.StartNew();
@@ -62,8 +62,7 @@ internal static unsafe class Program
         // --------------------------------------------------------------------
         Span<byte> localBuffer = stackalloc byte[256];
         var minCount = (int)Math.Max(fileLength / int.MaxValue, 1);
-        // Process by 50MB chunks minimum, or by the number of processors * 2
-        var taskCount = Math.Max(minCount, Math.Min((int)(fileLength / (ReadBufferSize * 2 * 50)), Environment.ProcessorCount));
+        var taskCount = Math.Max(minCount, Environment.ProcessorCount);
         var tasks = new List<Task<Dictionary<ulong, EntryItem>>>(taskCount);
         var chunkSize = fileLength / taskCount;
         long startOffset = 0;
