@@ -26,7 +26,7 @@ if ($IsWindows) {
     hyperfine --warmup 2 -m 3 -M 5 ".\bin\Release\net8.0\Fast1BRC.exe $inputFile"
 }
 else {
-    hyperfine --warmup 2 -m 3 -M 5 ".\bin\Release\net8.0\Fast1BRC.exe $inputFile"
+    hyperfine --warmup 2 -m 3 -M 5 ".\bin\Release\net8.0\Fast1BRC $inputFile"
 }
 echo "---------------------------------------------------------------"
 echo "AOT xoofx"
