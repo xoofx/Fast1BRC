@@ -2,6 +2,7 @@
 // Licensed under the BSD-Clause 2 license.
 // See license.txt file in the project root for full license information.
 using System.Diagnostics;
+using System.IO.MemoryMappedFiles;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -26,11 +27,12 @@ internal static unsafe class Program
 
         var count = args.Contains("--pgo") ? 10 : 1;
         var noThreads = args.Contains("--nothreads");
+        var mmap = args.Contains("--mmap");
         for (int i = 0; i < count; i++)
         {
             var clock = Stopwatch.StartNew();
             Console.OutputEncoding = Encoding.UTF8;
-            Console.WriteLine(Run(filePath, noThreads));
+            Console.WriteLine(Run(filePath, noThreads, mmap));
             clock.Stop();
 
             Console.WriteLine($"Elapsed in {clock.Elapsed.TotalMilliseconds} ms");
@@ -42,11 +44,17 @@ internal static unsafe class Program
     /// </summary>
     /// <param name="filePath">File to process</param>
     /// <returns>Formatted results</returns>
-    private static string Run(string filePath, bool noThreads)
+    private static unsafe string Run(string filePath, bool noThreads, bool mmap)
     {
         using var fileHandle = File.OpenHandle(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileOptions.SequentialScan);
         var fileLength = RandomAccess.GetLength(fileHandle);
 
+        using var mappedFile = MemoryMappedFile.CreateFromFile(fileHandle, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, true);
+        using var viewAccessor = mappedFile.CreateViewAccessor(0, fileLength, MemoryMappedFileAccess.Read);
+        var handle = viewAccessor.SafeMemoryMappedViewHandle;
+        byte* buffer = null;
+        handle.AcquirePointer(ref buffer);
+        
         // --------------------------------------------------------------------
         // Split the file by chunks and process them in parallel
         // --------------------------------------------------------------------
@@ -74,7 +82,14 @@ internal static unsafe class Program
             }
 
             long localStartOffset = startOffset;
-            tasks.Add(noThreads ? Task.FromResult(ProcessChunk(filePath, localStartOffset, endOffset)) : Task.Run(() => ProcessChunk(filePath, localStartOffset, endOffset)));
+            if (mmap)
+            {
+                tasks.Add(noThreads ? Task.FromResult(ProcessChunk(buffer, localStartOffset, endOffset)) : Task.Run(() => ProcessChunk(buffer, localStartOffset, endOffset)));
+            }
+            else
+            {
+                tasks.Add(noThreads ? Task.FromResult(ProcessChunk(filePath, localStartOffset, endOffset)) : Task.Run(() => ProcessChunk(filePath, localStartOffset, endOffset)));
+            }
             startOffset = endOffset;
         }
         Task.WaitAll(tasks.ToArray());
@@ -155,6 +170,24 @@ internal static unsafe class Program
             }
         }
 
+        return entries;
+    }
+
+
+
+    /// <summary>
+    /// Process a buffer
+    /// </summary>
+    /// <param name="entries">The dictionary to add entries.</param>
+    /// <param name="pBuffer">The start of the buffer.</param>
+    /// <param name="bufferLength">The length of the buffer</param>
+    /// <returns>An index to the remaining buffer that hasn't been processed because the line was not complete; otherwise -1</returns>
+    private static Dictionary<ulong, EntryItem> ProcessChunk(byte* pBuffer, long startOffset, long endOffset)
+    {
+        var entries = new Dictionary<ulong, EntryItem>(11000);
+        var bufferLength = (nint)(endOffset - startOffset);
+        pBuffer += startOffset;
+        ProcessBuffer(entries, ref *pBuffer, bufferLength);
         return entries;
     }
 
