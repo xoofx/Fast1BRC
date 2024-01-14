@@ -26,7 +26,7 @@ if ($IsWindows) {
     hyperfine --warmup 2 -m 3 -M 5 ".\bin\Release\net8.0\Fast1BRC.exe $inputFile"
 }
 else {
-    hyperfine --warmup 2 -m 3 -M 5 ".\bin\Release\net8.0\Fast1BRC $inputFile"
+    hyperfine --warmup 2 -m 3 -M 5 "./bin/Release/net8.0/Fast1BRC $inputFile"
 }
 echo "---------------------------------------------------------------"
 echo "AOT xoofx"
@@ -39,7 +39,7 @@ else {
     hyperfine --warmup 2 -m 3 -M 5 "$PSScriptRoot/bin/Release/net8.0/$donet_rid/publish/Fast1BRC $inputFile"
 }
 
-$testDir = "$PSScriptRoot\..\1brc-nietras"
+$testDir = Join-Path "$PSScriptRoot" ".." "1brc-nietras"
 if (Test-Path "$testDir")
 {
     echo "---------------------------------------------------------------"
@@ -65,7 +65,7 @@ if (Test-Path "$testDir")
     }
 }
 
-$testDir = "$PSScriptRoot\..\1brc-buybackoff"
+$testDir = Join-Path "$PSScriptRoot" ".." "1brc-buybackoff"
 if (Test-Path "$testDir")
 {
     echo "---------------------------------------------------------------"
