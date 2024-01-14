@@ -24,12 +24,16 @@ internal static unsafe class Program
         var filePath = args.Length > 0 ? args[0] : Path.Combine(Environment.CurrentDirectory, "measurements-1_000_000-sample.txt");
         if (!File.Exists(filePath)) throw new FileNotFoundException(filePath);
 
-        var clock = Stopwatch.StartNew();
-        Console.OutputEncoding = Encoding.UTF8;
-        Console.WriteLine(Run(filePath));
-        clock.Stop();
+        var count = args.Contains("--pgo") ? 10 : 1;
+        for (int i = 0; i < count; i++)
+        {
+            var clock = Stopwatch.StartNew();
+            Console.OutputEncoding = Encoding.UTF8;
+            Console.WriteLine(Run(filePath));
+            clock.Stop();
 
-        Console.WriteLine($"Elapsed in {clock.Elapsed.TotalMilliseconds} ms");
+            Console.WriteLine($"Elapsed in {clock.Elapsed.TotalMilliseconds} ms");
+        }
     }
 
 
