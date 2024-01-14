@@ -58,7 +58,7 @@ if (Test-Path "$testDir")
     echo "---------------------------------------------------------------"
     dotnet publish -p:TargetFramework=net8.0 -c Release $testDir\src\Brc\Brc.csproj
     if ($IsWindows) {
-        hyperfine --warmup 2 -m 3 -M 5 "$testDir\publish\Brc_AnyCPU_Release_net8.0_$donet_rid\Brc.exe $inputFile"
+        hyperfine --warmup 2 -m 3 -M 5 "$testDir\publish\Brc_AnyCPU_Release_net8.0\Brc.exe $inputFile"
     }
     else {
         hyperfine --warmup 2 -m 3 -M 5 "$testDir/publish/Brc_AnyCPU_Release_net8.0/Brc $inputFile"
