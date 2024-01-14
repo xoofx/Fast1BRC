@@ -21,28 +21,28 @@ internal static unsafe class Program
         
     static void Main(string[] args)
     {
-        var filePath = args.Length > 0 ? args[0] : Path.Combine(Environment.CurrentDirectory, "measurements-1_000_000-sample.txt");
+        var filePath = args.FirstOrDefault(x => !x.StartsWith("--")) ?? Path.Combine(Environment.CurrentDirectory, "measurements-1_000_000-sample.txt");
         if (!File.Exists(filePath)) throw new FileNotFoundException(filePath);
 
         var count = args.Contains("--pgo") ? 10 : 1;
+        var noThreads = args.Contains("--nothreads");
         for (int i = 0; i < count; i++)
         {
             var clock = Stopwatch.StartNew();
             Console.OutputEncoding = Encoding.UTF8;
-            Console.WriteLine(Run(filePath));
+            Console.WriteLine(Run(filePath, noThreads));
             clock.Stop();
 
             Console.WriteLine($"Elapsed in {clock.Elapsed.TotalMilliseconds} ms");
         }
     }
 
-
     /// <summary>
     /// Main entry point for the program
     /// </summary>
     /// <param name="filePath">File to process</param>
     /// <returns>Formatted results</returns>
-    private static string Run(string filePath)
+    private static string Run(string filePath, bool noThreads)
     {
         using var fileHandle = File.OpenHandle(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileOptions.SequentialScan);
         var fileLength = RandomAccess.GetLength(fileHandle);
@@ -74,7 +74,7 @@ internal static unsafe class Program
             }
 
             long localStartOffset = startOffset;
-            tasks.Add(Task.Run(() => ProcessChunk(filePath, localStartOffset, endOffset)));
+            tasks.Add(noThreads ? Task.FromResult(ProcessChunk(filePath, localStartOffset, endOffset)) : Task.Run(() => ProcessChunk(filePath, localStartOffset, endOffset)));
             startOffset = endOffset;
         }
         Task.WaitAll(tasks.ToArray());
