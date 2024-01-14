@@ -28,7 +28,8 @@ internal static unsafe class Program
         var count = args.Contains("--pgo") ? 10 : 1;
         var noThreads = args.Contains("--nothreads");
 
-        var mmap = !args.Contains("--nommap") && (args.Contains("--mmap") || !OperatingSystem.IsWindows());
+        // Use RandomAccess on Windows and Linux, mmap on macOS
+        var mmap = !args.Contains("--nommap") && (args.Contains("--mmap") || (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux()));
         for (int i = 0; i < count; i++)
         {
             var clock = Stopwatch.StartNew();
