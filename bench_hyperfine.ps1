@@ -81,7 +81,7 @@ if (Test-Path "$testDir")
     echo "---------------------------------------------------------------"
     echo "AOT buybackoff"
     echo "---------------------------------------------------------------"
-    dotnet publish -c Release
+    dotnet publish -c Release $testDir
     if ($IsWindows) {
         hyperfine --warmup 2 -m 3 -M 5 "$testDir\1brc\bin\Release\net8.0\$donet_rid\publish\1brc.exe $inputFile"
     }
