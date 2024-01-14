@@ -61,7 +61,7 @@ if (Test-Path "$testDir")
         hyperfine --warmup 2 -m 3 -M 5 "$testDir\publish\Brc_AnyCPU_Release_net8.0_$donet_rid\Brc.exe $inputFile"
     }
     else {
-        hyperfine --warmup 2 -m 3 -M 5 "$testDir/publish/Brc_AnyCPU_Release_net8.0_$donet_rid/Brc $inputFile"
+        hyperfine --warmup 2 -m 3 -M 5 "$testDir/publish/Brc_AnyCPU_Release_net8.0/Brc $inputFile"
     }
 }
 
