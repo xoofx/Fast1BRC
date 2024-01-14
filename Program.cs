@@ -124,7 +124,7 @@ internal static unsafe class Program
         using var localFileHandle = File.OpenHandle(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileOptions.SequentialScan);
         var buffer = GC.AllocateUninitializedArray<byte>(ReadBufferSize);
         ref var pBuffer = ref MemoryMarshal.GetArrayDataReference(buffer);
-        var entries = new Dictionary<ulong, EntryItem>(4000);
+        var entries = new Dictionary<ulong, EntryItem>(11000);
 
         long fileOffset = startOffset;
         nint bufferOffset = 0; // in case we have a line that is not fully read
