@@ -31,8 +31,8 @@ Some comments:
 
 - Results are varying a lot! 📊
 - Nietras solution is clearly more consistent and overall winning! 🥇
-- The results varies vastly between HW / OS 💾
-  - One of the main difference of performance is the M2/SSD disk access.
+- The results vary vastly between HW / OS 💾
+  - I believe one of the main differences of performance is the M2/SSD disk access
 
 ## Build
 
