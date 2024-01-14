@@ -216,6 +216,7 @@ internal static unsafe class Program
 
             ulong acc = 0;
             int accCount = 0;
+            int accTotal8BytesCount = 0;
             while (index < bufferLength)
             {
                 var c = Unsafe.Add(ref pBuffer, index);
@@ -223,18 +224,26 @@ internal static unsafe class Program
                 {
                     if (accCount > 0)
                     {
-                        acc <<= (8 - accCount);
                         hash = (hash ^ acc) * fnv1APrime;
+                        accTotal8BytesCount++;
+                    }
+
+                    // If we have an odd number of bytes, we add a 0 byte to the hash
+                    // To match the Vector128 version
+                    if ((accTotal8BytesCount & 1) != 0)
+                    {
+                        hash = (hash ^ 0) * fnv1APrime;
                     }
                     goto readTemp;
                 }
-                acc = (acc << 8) | c;
+                acc |=  ((ulong)c << (accCount * 8));
                 accCount++;
                 if (accCount == 8)
                 {
                     hash = (hash ^ acc) * fnv1APrime;
                     acc = 0;
                     accCount = 0;
+                    accTotal8BytesCount++;
                 }
                 index++;
             }
