@@ -16,6 +16,24 @@ Aggregated results for C#/F# at https://github.com/praeclarum/1brc
   - It is using a vectorized version with `Vector128` which is able to hash a name in just a few SIMD instructions 
 - No particular tricks for parsing the temperature, apart assuming that there is only 1 digit after the `.`
 
+## Results
+
+Benchmark performed on 3 different machines with a different combination of OS, with the following top libraries:
+
+- Fast1BRC (This repository)
+- [Nietras's 1brc](https://github.com/nietras/1brc.cs)
+- [Buybackoff's 1brc](https://github.com/buybackoff/1brc)
+
+
+![Results](results.png)
+
+Some comments:
+
+- Results are varying a lot! 📊
+- Nietras solution is clearly more consistent and overall winning! 🥇
+- The results varies vastly between HW / OS 💾
+  - One of the main difference of performance is the M2/SSD disk access.
+
 ## Build
 
 You need to have [.NET 8 SDK installed](https://dotnet.microsoft.com/en-us/download/dotnet/8.0)
