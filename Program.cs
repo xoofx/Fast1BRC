@@ -63,7 +63,7 @@ internal static unsafe class Program
         Span<byte> localBuffer = stackalloc byte[256];
         var minCount = (int)Math.Max(fileLength / int.MaxValue, 1);
         // Process by 50MB chunks minimum, or by the number of processors * 2
-        var taskCount = Math.Max(minCount, Math.Min((int)(fileLength / (ReadBufferSize * 2 * 50)), Environment.ProcessorCount * 2));
+        var taskCount = Math.Max(minCount, Math.Min((int)(fileLength / (ReadBufferSize * 2 * 50)), Environment.ProcessorCount * 15 / 10));
         var tasks = new List<Task<Dictionary<ulong, EntryItem>>>(taskCount);
         var chunkSize = fileLength / taskCount;
         long startOffset = 0;
