@@ -19,7 +19,8 @@ namespace Fast1BRC;
 internal static unsafe class Program
 {
     private const int ReadBufferSize = 512 << 10; // 512 KB
-        
+    private const int ExtraBufferSize = 256;
+
     static void Main(string[] args)
     {
         var filePath = args.FirstOrDefault(x => !x.StartsWith("--")) ?? Path.Combine(Environment.CurrentDirectory, "measurements-1_000_000-sample.txt");
@@ -63,7 +64,8 @@ internal static unsafe class Program
         Span<byte> localBuffer = stackalloc byte[256];
         var minCount = (int)Math.Max(fileLength / int.MaxValue, 1);
         var taskCount = Math.Max(minCount, Environment.ProcessorCount);
-        var tasks = new List<Task<Dictionary<ulong, EntryItem>>>(taskCount);
+        var threads = new List<Thread>(taskCount);
+        var results = new Dictionary<ulong, EntryItem>[taskCount];
         var chunkSize = fileLength / taskCount;
         long startOffset = 0;
         for (int i = 0; i < taskCount; i++)
@@ -85,22 +87,30 @@ internal static unsafe class Program
             }
 
             long localStartOffset = startOffset;
-            if (mmap)
+            if (noThreads)
             {
-                tasks.Add(noThreads ? Task.FromResult(ProcessChunk(buffer, localStartOffset, endOffset)) : Task.Run(() => ProcessChunk(buffer, localStartOffset, endOffset)));
+                results[i] = mmap
+                    ? ProcessChunk(buffer, localStartOffset, endOffset)
+                    : ProcessChunk(filePath, localStartOffset, endOffset);
             }
             else
             {
-                tasks.Add(noThreads ? Task.FromResult(ProcessChunk(filePath, localStartOffset, endOffset)) : Task.Run(() => ProcessChunk(filePath, localStartOffset, endOffset)));
+                var localIndex = i;
+                var thread = mmap
+                    ? new Thread(() => results[localIndex] = ProcessChunk(buffer, localStartOffset, endOffset))
+                    : new Thread(() => results[localIndex] = ProcessChunk(filePath, localStartOffset, endOffset));
+                thread.Priority = ThreadPriority.Highest;
+                thread.Start();
+                threads.Add(thread);
             }
             startOffset = endOffset;
         }
-        Task.WaitAll(tasks.ToArray());
+        threads.ForEach(x => x.Join());
 
         // --------------------------------------------------------------------
         // Aggregate the results
         // --------------------------------------------------------------------
-        var result = tasks.Select(x => x.Result).SelectMany(x => x.Values).Aggregate(
+        var result = results.SelectMany(x => x.Values).Aggregate(
             new Dictionary<string, EntryItem>(),
             (acc, item) =>
             {
@@ -140,8 +150,10 @@ internal static unsafe class Program
     {
         // Reopen the file to improve concurrency, as it seems - at least on Windows - that it is more efficient to have multiple handles
         using var localFileHandle = File.OpenHandle(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileOptions.SequentialScan);
-        var buffer = GC.AllocateUninitializedArray<byte>(ReadBufferSize);
-        ref var pBuffer = ref MemoryMarshal.GetArrayDataReference(buffer);
+        var managedBuffer = GC.AllocateUninitializedArray<byte>(ReadBufferSize + ExtraBufferSize, true);
+        var handle = GCHandle.Alloc(managedBuffer, GCHandleType.Pinned);
+        var buffer = (byte*)handle.AddrOfPinnedObject() + ExtraBufferSize;
+
         var entries = new Dictionary<ulong, EntryItem>(11000);
 
         long fileOffset = startOffset;
@@ -149,22 +161,21 @@ internal static unsafe class Program
         while (fileOffset < endOffsetNotInclusive)
         {
             // Read the next buffer
-            var maxLengthToRead = Math.Min(ReadBufferSize - bufferOffset, endOffsetNotInclusive - fileOffset);
-            var span = MemoryMarshal.CreateSpan(ref Unsafe.Add(ref pBuffer, bufferOffset), (int)maxLengthToRead);
-            var bufferLength = RandomAccess.Read(localFileHandle, span, fileOffset);
+            var maxLengthToRead = Math.Min(ReadBufferSize, endOffsetNotInclusive - fileOffset);
+            var bufferLength = RandomAccess.Read(localFileHandle, new Span<byte>(buffer, (int)maxLengthToRead), fileOffset);
 
             if (bufferLength == 0) break;
             fileOffset += bufferLength;
             bufferLength += (int)bufferOffset;
 
             // Process the buffer
-            var startLineIndex = ProcessBuffer(entries, ref pBuffer, bufferLength);
+            var startLineIndex = ProcessBuffer(entries, buffer - bufferOffset, bufferLength);
 
             if (startLineIndex >= 0)
             {
                 // Copy the remaining bytes to the beginning of the buffer (A line that was not fully read)
                 var remainingLength = bufferLength - (int)startLineIndex;
-                Unsafe.CopyBlockUnaligned(ref pBuffer, ref Unsafe.Add(ref pBuffer, startLineIndex), (uint)remainingLength);
+                Unsafe.CopyBlockUnaligned(buffer - remainingLength, buffer - bufferOffset + startLineIndex, (uint)remainingLength);
                 bufferOffset = remainingLength;
             }
             else
@@ -173,6 +184,8 @@ internal static unsafe class Program
             }
         }
 
+        handle.Free();
+
         return entries;
     }
 
@@ -181,27 +194,21 @@ internal static unsafe class Program
     /// <summary>
     /// Process a buffer
     /// </summary>
-    /// <param name="entries">The dictionary to add entries.</param>
-    /// <param name="pBuffer">The start of the buffer.</param>
-    /// <param name="bufferLength">The length of the buffer</param>
     /// <returns>An index to the remaining buffer that hasn't been processed because the line was not complete; otherwise -1</returns>
     private static Dictionary<ulong, EntryItem> ProcessChunk(byte* pBuffer, long startOffset, long endOffset)
     {
         var entries = new Dictionary<ulong, EntryItem>(11000);
         var bufferLength = (nint)(endOffset - startOffset);
         pBuffer += startOffset;
-        ProcessBuffer(entries, ref *pBuffer, bufferLength);
+        ProcessBuffer(entries, pBuffer, bufferLength);
         return entries;
     }
 
     /// <summary>
     /// Process a buffer
     /// </summary>
-    /// <param name="entries">The dictionary to add entries.</param>
-    /// <param name="pBuffer">The start of the buffer.</param>
-    /// <param name="bufferLength">The length of the buffer</param>
     /// <returns>An index to the remaining buffer that hasn't been processed because the line was not complete; otherwise -1</returns>
-    private static nint ProcessBuffer(Dictionary<ulong, EntryItem> entries, ref byte pBuffer, nint bufferLength)
+    private static nint ProcessBuffer(Dictionary<ulong, EntryItem> entries, byte* buffer, nint bufferLength)
     {
         nint index = 0;
         while (index < bufferLength)
@@ -213,7 +220,6 @@ internal static unsafe class Program
             // We calculate the FNV-1A hash as we go
             // With a 64bit hash, we should avoid any collisions for the entries that we have
             // --------------------------------------------------------------------
-            nint commaIndex;
             ulong hash = 0xcbf29ce484222325;
             const ulong fnv1APrime = 0x100000001b3;
 
@@ -223,7 +229,7 @@ internal static unsafe class Program
                 while (index + Vector128<byte>.Count < bufferLength)
                 {
                     var mask = Vector128.Create((byte)';');
-                    var v = Vector128.LoadUnsafe(ref Unsafe.Add(ref pBuffer, index));
+                    var v = Vector128.Load(buffer + index);
                     var eq = Vector128.Equals(v, mask);
                     if (eq == Vector128<byte>.Zero)
                     {
@@ -255,7 +261,7 @@ internal static unsafe class Program
             int accTotal8BytesCount = 0;
             while (index < bufferLength)
             {
-                var c = Unsafe.Add(ref pBuffer, index);
+                var c = *(buffer + index);
                 if (c == (byte)';')
                 {
                     if (accCount > 0)
@@ -287,7 +293,7 @@ internal static unsafe class Program
             return startLineIndex;
 
         readTemp:
-            commaIndex = index++;
+            var commaIndex = index++;
 
             // --------------------------------------------------------------------
             // Process the temperature
@@ -296,7 +302,7 @@ internal static unsafe class Program
             int temp = 0;
             while (index < bufferLength)
             {
-                var c = Unsafe.Add(ref pBuffer, index++);
+                var c = *(buffer + index++);
                 if (c == (byte)'-')
                 {
                     sign = -1;
@@ -322,7 +328,7 @@ internal static unsafe class Program
             ref var entry = ref CollectionsMarshal.GetValueRefOrAddDefault(entries, hash, out var exists);
             if (!exists)
             {
-                var name = Encoding.UTF8.GetString(MemoryMarshal.CreateReadOnlySpan(ref Unsafe.Add(ref pBuffer, startLineIndex), (int)(commaIndex - startLineIndex)));
+                var name = Encoding.UTF8.GetString(buffer + startLineIndex, (int)(commaIndex - startLineIndex));
                 entry.Name = name;
                 entry.MinTemp = int.MaxValue;
             }
