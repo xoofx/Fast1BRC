@@ -20,6 +20,5 @@
     <Content Include="measurements-1_000_000-sample.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <IlcArg Include="--mibc%3apgo.mibc" />
   </ItemGroup>
 </Project>
