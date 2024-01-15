@@ -9,6 +9,7 @@
     <PublishAot>true</PublishAot>
     <OptimizationPreference>Speed</OptimizationPreference>
     <IlcInstructionSet>native</IlcInstructionSet>
+    <TieredCompilation>false</TieredCompilation>
   </PropertyGroup>
   
   <ItemGroup>
