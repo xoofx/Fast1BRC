@@ -5,7 +5,7 @@
 
 Aggregated results for C#/F# at https://github.com/praeclarum/1brc
 
-**Fast1BRC** might be one of the fastest (if not the fastest! 😅) implementation in the wild west. 🚀
+**Fast1BRC** is one of the fastest 😅 implementation in the .NET wild west. 🚀
 
 ## Techniques used
 
@@ -15,6 +15,11 @@ Aggregated results for C#/F# at https://github.com/praeclarum/1brc
 - FNV-1A 64 bit hashing of the city names aligned on 8 bytes boundary, seems that it is not authorized from official rules, but I found it quite solid
   - It is using a vectorized version with `Vector128` which is able to hash a name in just a few SIMD instructions 
 - No particular tricks for parsing the temperature, apart assuming that there is only 1 digit after the `.`
+- Custom Dictionary to improve the performance (more inlining of Equals/GetHashCode instead of going through a indirect delegate call)
+
+> Warning
+>
+> This version is using a 64 bit hash for the name. But it seems that this technique is not authorized as per the rules as explained [here](https://github.com/gunnarmorling/1brc/pull/186#issuecomment-1880132600). When I started, I didn't know about this rule, but also, I don't agree with it. We are not hashing random data and if you take all the words in the world that we are aware of and put them through a 64 bit hash, I doubt that there will be a single collision. Happy to be proven wrong though. 😊
 
 ## Results
 
