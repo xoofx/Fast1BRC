@@ -65,7 +65,7 @@ internal static unsafe class Program
         var minCount = (int)Math.Max(fileLength / int.MaxValue, 1);
         var taskCount = Math.Max(minCount, Environment.ProcessorCount);
         var threads = new List<Thread>(taskCount);
-        var results = new Dictionary<ulong, EntryItem>[taskCount];
+        var results = new FastDictionary<ulong, EntryItem>[taskCount];
         var chunkSize = fileLength / taskCount;
         long startOffset = 0;
         for (int i = 0; i < taskCount; i++)
@@ -146,7 +146,7 @@ internal static unsafe class Program
     /// <param name="startOffset">The starting offset within the file. Always start at the beginning of a new line.</param>
     /// <param name="endOffsetNotInclusive">The end offset - non inclusive.</param>
     /// <returns></returns>
-    private static Dictionary<ulong, EntryItem> ProcessChunk(string filePath, long startOffset, long endOffsetNotInclusive)
+    private static FastDictionary<ulong, EntryItem> ProcessChunk(string filePath, long startOffset, long endOffsetNotInclusive)
     {
         // Reopen the file to improve concurrency, as it seems - at least on Windows - that it is more efficient to have multiple handles
         using var localFileHandle = File.OpenHandle(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileOptions.SequentialScan);
@@ -154,7 +154,7 @@ internal static unsafe class Program
         var handle = GCHandle.Alloc(managedBuffer, GCHandleType.Pinned);
         var buffer = (byte*)handle.AddrOfPinnedObject() + ExtraBufferSize;
 
-        var entries = new Dictionary<ulong, EntryItem>(11000);
+        var entries = new FastDictionary<ulong, EntryItem>(11000);
 
         long fileOffset = startOffset;
         nint bufferOffset = 0; // in case we have a line that is not fully read
@@ -195,9 +195,9 @@ internal static unsafe class Program
     /// Process a buffer
     /// </summary>
     /// <returns>An index to the remaining buffer that hasn't been processed because the line was not complete; otherwise -1</returns>
-    private static Dictionary<ulong, EntryItem> ProcessChunk(byte* pBuffer, long startOffset, long endOffset)
+    private static FastDictionary<ulong, EntryItem> ProcessChunk(byte* pBuffer, long startOffset, long endOffset)
     {
-        var entries = new Dictionary<ulong, EntryItem>(11000);
+        var entries = new FastDictionary<ulong, EntryItem>(11000);
         var bufferLength = (nint)(endOffset - startOffset);
         pBuffer += startOffset;
         ProcessBuffer(entries, pBuffer, bufferLength);
@@ -208,7 +208,7 @@ internal static unsafe class Program
     /// Process a buffer
     /// </summary>
     /// <returns>An index to the remaining buffer that hasn't been processed because the line was not complete; otherwise -1</returns>
-    private static nint ProcessBuffer(Dictionary<ulong, EntryItem> entries, byte* buffer, nint bufferLength)
+    private static nint ProcessBuffer(FastDictionary<ulong, EntryItem> entries, byte* buffer, nint bufferLength)
     {
         nint index = 0;
         while (index < bufferLength)
@@ -325,7 +325,7 @@ internal static unsafe class Program
             // --------------------------------------------------------------------
             // Add the entry
             // --------------------------------------------------------------------
-            ref var entry = ref CollectionsMarshal.GetValueRefOrAddDefault(entries, hash, out var exists);
+            ref var entry = ref entries.GetValueRefOrAddDefault(hash, out var exists);
             if (!exists)
             {
                 var name = Encoding.UTF8.GetString(buffer + startLineIndex, (int)(commaIndex - startLineIndex));

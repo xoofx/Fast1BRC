@@ -9,7 +9,7 @@
     <PublishAot>true</PublishAot>
     <OptimizationPreference>Speed</OptimizationPreference>
     <IlcInstructionSet>native</IlcInstructionSet>
-    <TieredCompilation>false</TieredCompilation>
+    <!--<TieredCompilation>false</TieredCompilation>-->
   </PropertyGroup>
   
   <ItemGroup>
@@ -20,6 +20,5 @@
     <Content Include="measurements-1_000_000-sample.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <IlcArg Include="--mibc%3apgo.mibc" />
   </ItemGroup>
 </Project>
