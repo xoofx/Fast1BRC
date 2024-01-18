@@ -314,7 +314,7 @@ internal static unsafe class Program
         using var fileHandle = File.OpenHandle(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileOptions.RandomAccess);
         using var mappedFile = MemoryMappedFile.CreateFromFile(fileHandle, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, true);
 
-        var bufferLength = (int)(endOffset - startOffset);
+        var bufferLength = endOffset - startOffset;
         using var viewAccessor = mappedFile.CreateViewAccessor(startOffset, bufferLength, MemoryMappedFileAccess.Read);
         var handle = viewAccessor.SafeMemoryMappedViewHandle;
         byte* buffer = null;
