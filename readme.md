@@ -12,6 +12,7 @@ Aggregated results for C#/F# at https://github.com/praeclarum/1brc
 - Multiple threads and some SIMD
   - SIMD used [here](https://github.com/xoofx/Fast1BRC/blob/28589e047c4106357995d4bdb37b70d16f5184d7/Program.cs#L356-L388) mostly for finding the index of `;` separating the city name with the temperature
   - We can then keep the full city name in a single `Vector256<byte>` register (when the city name is `<=` 32)
+  - For the threads, I'm keeping the main thread busy processing the last block
 - On Windows, no memory mapped file but RandomAccess reopening the same handle per thread
   - As I discovered that it is lowering OS contention on Windows
   - On Linux, it seems that it's less an issue, performance being relatively the same
@@ -21,7 +22,7 @@ Aggregated results for C#/F# at https://github.com/praeclarum/1brc
   - One with a key of 128 bytes to support the limit of city names (100 characters)
   - Both are implemented with `Vector256<byte>`
   - Cache entries are aligned on 64 bytes to allow better cache usage
-  - Dictionary implementation is taken from .NET BCL but reimplemented with unsafe and with using pointers directly instead of indices
+  - [Dictionary implementation](https://github.com/xoofx/Fast1BRC/blob/28589e047c4106357995d4bdb37b70d16f5184d7/Program.cs#L889-L932) is taken from .NET BCL but reimplemented with unsafe and with using pointers directly instead of indices
   - For the 32 bytes key, the implementation inline things directly so that we maximize the codegen with everything being kept in registers.
   - For the hash of the dictionary (both 32 bytes and 128 bytes key), I'm hashing the first 16 bytes by XORing the 2 first `ulong` with an intermediate multiplication by 397 for the first `ulong` (prime number that gives good results). It is enough simple and efficient to not have any collisions.
 - No particular tricks for parsing the temperature, apart assuming that there is only 1 digit after the `.`.
@@ -41,8 +42,8 @@ Benchmark performed on 3 different machines with a different combination of OS, 
 Some comments:
 
 - Results are varying a lot! 📊
-- My solution comes really close 🥈, but Nietras solution is really more consistent and overall winning! 🥇
-  - It is interesting to note that Nietras and my solution are implemented with similar techniques, very close in most benchmarks, but there are some exceptions (e.g MacOS) that I haven't been able to explain. It looks like it relates mainly to the JIT struggling more while the AOT is similar, but haven't digged up exactly why... 🤔
+- My solution comes really really close 🥈 to Nietras solution (5% on average), but his solution is probably slightly more consistent and overall winning! 🥇
+  - I discovered that it can be easy to mess things with a slight change that could work on one machine/platform but not work on another. Process/Threading priority tweaking are super sensitive and I stopped tweaking them in the end and I'm using the default. 😅
 - The results vary vastly between HW / OS 💾
   - The first aspect is the performance of the M2/SSD disk access
   - The second aspect is CPU performance (number of cores, caches, clock...etc.)
