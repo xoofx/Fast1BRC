@@ -23,6 +23,7 @@ Aggregated results for C#/F# at https://github.com/praeclarum/1brc
   - Cache entries are aligned on 64 bytes to allow better cache usage
   - Dictionary implementation is taken from .NET BCL but reimplemented with unsafe and with using pointers directly instead of indices
   - For the 32 bytes key, the implementation inline things directly so that we maximize the codegen with everything being kept in registers.
+  - For the hash of the dictionary (both 32 bytes and 128 bytes key), I'm hashing the first 16 bytes by XORing the 2 first `ulong` with an intermediate multiplication by 397 for the first `ulong` (prime number that gives good results). It is enough simple and efficient to not have any collisions.
 - No particular tricks for parsing the temperature, apart assuming that there is only 1 digit after the `.`.
   - When I changed the code to not parse the temperature, it was not changing meaningfully the results.
 
