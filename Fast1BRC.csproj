@@ -6,10 +6,22 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAOTAnalyzer>true</EnableAOTAnalyzer>
+
+    <TieredCompilation>false</TieredCompilation>
+
     <PublishAot>true</PublishAot>
     <OptimizationPreference>Speed</OptimizationPreference>
     <IlcInstructionSet>native</IlcInstructionSet>
-    <!--<TieredCompilation>false</TieredCompilation>-->
+    <StripSymbols>true</StripSymbols>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <EventSourceSupport>false</EventSourceSupport>
+    <PublishReadyToRunEmitSymbols>true</PublishReadyToRunEmitSymbols>
   </PropertyGroup>
   
   <ItemGroup>
@@ -20,5 +32,6 @@
     <Content Include="measurements-1_000_000-sample.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <IlcArg Include="--mibc%3apgo.mibc" />
   </ItemGroup>
 </Project>
