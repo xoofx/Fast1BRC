@@ -28,13 +28,11 @@ internal static unsafe class Program
 
     static void Main(string[] args)
     {
-        try
+        if (nint.Size == 4)
         {
-            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.RealTime;
-        }
-        catch
-        {
-            // Ignore
+            Console.WriteLine("This program is only supported on 64 bits");
+            Environment.Exit(1);
+            return;
         }
 
         var filePath = args.FirstOrDefault(x => !x.StartsWith("--")) ?? Path.Combine(Environment.CurrentDirectory, "measurements-1_000_000-sample.txt");
@@ -146,10 +144,10 @@ internal static unsafe class Program
         // --------------------------------------------------------------------
         var clock = Stopwatch.StartNew();
         Span<byte> localBuffer = stackalloc byte[256];
-        var minCount = (int)Math.Max(fileLength / int.MaxValue, 1);
-        // As we are running one chunk on the main thread, we need to keep one core free
-        // But on machines we not enough core, we want to give the JIT a chance to optimize the code, so we give another core available
-        var taskCount = Math.Max(minCount, Environment.ProcessorCount - (Environment.ProcessorCount < 16 ? 2 : 1));
+        // Let's make sure that we don't overflow later
+        var minCount = (int)Math.Max(fileLength / (int.MaxValue - Environment.SystemPageSize), 1);
+        // As we are running one chunk on the main thread
+        var taskCount = Math.Max(minCount, Environment.ProcessorCount);
         if (options.Verbose)
         {
             Console.WriteLine($"Using {taskCount} tasks");
@@ -189,7 +187,8 @@ internal static unsafe class Program
                     results[localIndex] = TImpl.ProcessChunk(filePath, localStartOffset, endOffset);
                 })
                 {
-                    Priority = ThreadPriority.Highest
+                    // Don't mess with priority, as it seems slower (e.g on MacOS, it is giving terrible results, as the JIT doesn't seem to be able to have time to optimize anything)
+                    //Priority = ThreadPriority.Highest
                 };
                 thread.Start();
                 threads.Add(thread);
@@ -319,7 +318,7 @@ internal static unsafe class Program
         var handle = viewAccessor.SafeMemoryMappedViewHandle;
         byte* buffer = null;
         handle.AcquirePointer(ref buffer);
-        ProcessBuffer(entries, buffer + viewAccessor.PointerOffset, bufferLength);
+        ProcessBuffer(entries, buffer + viewAccessor.PointerOffset, (nint)bufferLength);
 
         handle.ReleasePointer();
 
