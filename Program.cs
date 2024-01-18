@@ -147,7 +147,13 @@ internal static unsafe class Program
         var clock = Stopwatch.StartNew();
         Span<byte> localBuffer = stackalloc byte[256];
         var minCount = (int)Math.Max(fileLength / int.MaxValue, 1);
-        var taskCount = Math.Max(minCount, Environment.ProcessorCount);
+        // As we are running one chunk on the main thread, we need to keep one core free
+        // But on machines we not enough core, we want to give the JIT a chance to optimize the code, so we give another core available
+        var taskCount = Math.Max(minCount, Environment.ProcessorCount - (Environment.ProcessorCount < 16 ? 2 : 1));
+        if (options.Verbose)
+        {
+            Console.WriteLine($"Using {taskCount} tasks");
+        }
         var threads = new List<Thread>(taskCount);
         var results = new DictionaryGroup[taskCount];
         var chunkSize = fileLength / taskCount;
