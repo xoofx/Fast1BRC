@@ -10,7 +10,7 @@ Aggregated results for C#/F# at https://github.com/praeclarum/1brc
 ## Techniques used
 
 - Multiple threads and some SIMD
-  - SIMD used mostly for finding the index of `;` separating the city name with the temperature
+  - SIMD used [here](https://github.com/xoofx/Fast1BRC/blob/28589e047c4106357995d4bdb37b70d16f5184d7/Program.cs#L356-L388) mostly for finding the index of `;` separating the city name with the temperature
   - We can then keep the full city name in a single `Vector256<byte>` register (when the city name is `<=` 32)
 - On Windows, no memory mapped file but RandomAccess reopening the same handle per thread
   - As I discovered that it is lowering OS contention on Windows
